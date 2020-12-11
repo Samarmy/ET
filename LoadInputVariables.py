@@ -1,6 +1,7 @@
 import socket
 from datetime import datetime
 import datetime
+import pygeohash
 from skimage import io
 from skimage.transform import resize
 import ee
@@ -110,6 +111,9 @@ class generate_input_data():
     def convertEpochToDate(self, inputEpoch):
         return datetime.datetime.fromtimestamp(inputEpoch).strftime('%Y-%m-%d')
 
+    def getGeoH(self, lat, long, length=3):
+        return pygeohash.encode(lat, long, precision=length)
+
     def input_features(self, isDatasetDownloaded=False):
         '''
         :return: tmax, tmin, ea, rs, uz, zw, elev, lat
@@ -120,18 +124,32 @@ class generate_input_data():
 
             print(len(images))
             # tmax, tmin = self.temp_bands()
-            for img in images:
-                tmin = img.select(['tmmn']).subtract(273.15).rename(['tmin'])
-                tmax = img.select(['tmmx']).subtract(273.15).rename(['tmax'])
-                uz = img.select(['vs']).rename(['uz'])
-                rs = img.select(['srad']).multiply(0.0864).rename(['rs'])
-                ea = calcs._actual_vapor_pressure(
-                    q=img.select(['sph']),
-                    pair=calcs._air_pressure(elev, 'asce')).rename(['ea'])
-                lat_ = np.array((ee.Array(data.get("lat")).getInfo()))
-                long_ = np.array((ee.Array(data.get("long")).getInfo()))
+            # for img in images:
+            #     tmin = img.select(['tmmn']).subtract(273.15).rename(['tmin'])
+            #     tmax = img.select(['tmmx']).subtract(273.15).rename(['tmax'])
+            #     uz = img.select(['vs']).rename(['uz'])
+            #     rs = img.select(['srad']).multiply(0.0864).rename(['rs'])
+            #     ea = calcs._actual_vapor_pressure(
+            #         q=img.select(['sph']),
+            #         pair=calcs._air_pressure(elev, 'asce')).rename(['ea'])
+            #     lat_ = np.array((ee.Array(data.get("lat")).getInfo()))
+            #     long_ = np.array((ee.Array(data.get("long")).getInfo()))
 
         #Currently supports Gridmet dataset using EE tool;
+        else:
+            if self.geoh is None:
+                stip_iter = stippy.list_node_images(self.host_addr, platform='GRIDMET', album='colorado',
+                                                    min_pixel_coverage=1.0, source='raw',
+                                                    max_cloud_coverage=self.cloud_cov,
+                                                    start_timestamp=self.startT, end_timestamp=self.endT, recurse=True
+                                                    )
+            else:
+                stip_iter = stippy.list_node_images(self.host_addr, platform='GRIDMET', album='colorado',
+                                                    min_pixel_coverage=1.0, source='raw',
+                                                    max_cloud_coverage=self.cloud_cov,
+                                                    start_timestamp=self.startT, end_timestamp=self.endT, geocode=self.geoh
+                                                    )
+
 
         return
 
